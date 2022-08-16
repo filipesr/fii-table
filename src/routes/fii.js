@@ -15,9 +15,13 @@ router.get("/:Ticker", (req, res) => {
 
   if(!process.env.DEBUG) {
     const Host = req.get('site') || req.get('host');
-    // console.log('host', host);
     const { originalUrl: Url } = req;
-    new Call({Ticker, host: Host, url: Url}).save();
+    const call = {Ticker, Host, Url};
+    console.log('new Call...');
+    console.debug(call);
+    new Call(call).save()
+    .then(console.debug({error: false, message: `Call saved`, data}))
+    .catch((err) => console.debug({error: true, message: `Call error on save`, err}));
   }
 
   console.log('Fii.findOne', Ticker);
