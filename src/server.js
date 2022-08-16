@@ -11,8 +11,8 @@
 
   const dbMSG = mongoose
     .connect(process.env.MONGO_URL)
-    .then({err: false, msg: "DB Connection Successfull!"})
-    .catch((err) => { msg: "DB Connection ERROR!", err });
+    .then(() => { return {err: false, msg: "DB Connection Successfull!"} })
+    .catch((err) => { return { msg: "DB Connection ERROR!", err }});
 
   app.get("/", async (req, res) => {
     // res.status(200).json("test is successfull!");
