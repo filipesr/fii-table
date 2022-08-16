@@ -8,8 +8,9 @@ export default (Ticker) => {
     .then((response) => {
       // handle success
       const { data } = response.data;
+      console.log(`'FiiAPI.then' ${Ticker}`);
       // console.debug(data);
       return data;
     })
-    .catch(false);
+    .catch((err) => console.debug(err));
 };

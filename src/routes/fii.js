@@ -1,4 +1,5 @@
 import express from "express";
+import moment from 'moment';
 
 import Call from "../models/Call.js";
 import Fii from "../models/Fii.js";
@@ -18,27 +19,33 @@ router.get("/:Ticker", (req, res) => {
     const { originalUrl: Url } = req;
     const call = {Ticker, Host, Url};
     console.log('new Call...');
-    console.debug(call);
-    new Call(call).save()
-    .then(console.debug({error: false, message: `Call saved`}))
-    .catch((err) => console.debug({error: true, message: `Call error on save`, err}));
+    // console.debug(call);
+    new Call(call).save();
+    // .then(console.debug({error: false, message: `Call saved`}))
+    // .catch((err) => console.debug({error: true, message: `Call error on save`, err}));
   }
 
   console.log('Fii.findOne', Ticker);
   Fii.findOne({ Ticker }, (err, item) => {
     if (err) return res.status(500).json({error: true, message: `Service temporality unavaliable...`, err});
-    if (item === null) {
+    console.log(item.updatedAt, moment().isAfter(item.updatedAt, 'day'));
+    if (item === null || moment().isAfter(item.updatedAt, 'day')) {
       console.log('FiiAPI', Ticker);
-      FiiAPI(Ticker).then((data) => {
-        console.debug(data);
-        console.log('new Fii(data)');
-        const fii = new Fii(data);
-        console.debug(fii);
-        console.log('fii.save()');
-        fii.save()
-          .then(res.status(201).json(data))
-          .catch((err) => console.debug({error: true, message: `Service temporality overloaded...`, err}));
-      }).catch((err) => res.status(500).json({error: true, message: `Service unavaliable on Ticker '${Ticker}...`, err}));
+      FiiAPI(Ticker)
+        .then((data) => {
+          console.log('FiiAPI(Ticker).then(data)');
+          
+          const configUpsert = {
+            new: true,
+            upsert: true // Make this update into an upsert
+          };
+          console.log('Fii.findOneAndUpdate');
+          Fii.findOneAndUpdate({ Ticker }, data, configUpsert)
+            .then(res.status(201).json(data))
+            .catch((err) => res.status(500).json({error: true, message: `Service temporality overloaded...`, err}));
+
+        })
+        .catch((err) => res.status(500).json({error: true, message: `Service unavaliable on Ticker '${Ticker}...`, err}));
     } else {
       console.log(`Recovered from db Ticker '${Ticker}'`);
       res.status(200).json(item);
