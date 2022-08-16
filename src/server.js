@@ -1,13 +1,13 @@
   import express from "express";
   import mongoose from "mongoose";
-  import dotenv from "dotenv";
+  // import dotenv from "dotenv";
   import cors from "cors";
   import path from 'path';
   
   import FiiRoute from "./routes/fii.js";
   
   const app = express();
-  dotenv.config();
+  // dotenv.config();
 
   mongoose
     .connect(process.env.MONGO_URL)
