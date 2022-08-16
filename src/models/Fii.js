@@ -19,6 +19,14 @@ const FiiSchema = new mongoose.Schema(
       "DateOnCVM": "--/--/--",
       "NumberOfQuota": "96.286.021",
       "NumberOfQuotaHolders": "92"
+      "lastRevenuesTable": [
+        {
+          "DataBase": "08.09.2021",
+          "DatePayment": "15.09.2021",
+          "BaseQuotation": "R$ 120,00",
+          "DY": "12,09 %",
+          "Dividend": "R$ 14,504"
+        },
      */
     
     Ticker: { type: String, unique: true, required: true },
@@ -37,6 +45,13 @@ const FiiSchema = new mongoose.Schema(
     DateOnCVM: { type: String },
     NumberOfQuota: { type: String },
     NumberOfQuotaHolders: { type: String },
+    lastRevenuesTable: {
+      DataBase: String, 
+      DatePayment:  String, 
+      BaseQuotation:  String, 
+      DY: String, 
+      Dividend: String, 
+    },
   },
   { timestamps: true }
 );
