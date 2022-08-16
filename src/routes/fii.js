@@ -20,7 +20,7 @@ router.get("/:Ticker", (req, res) => {
     console.log('new Call...');
     console.debug(call);
     new Call(call).save()
-    .then(console.debug({error: false, message: `Call saved`, data}))
+    .then(console.debug({error: false, message: `Call saved`}))
     .catch((err) => console.debug({error: true, message: `Call error on save`, err}));
   }
 
