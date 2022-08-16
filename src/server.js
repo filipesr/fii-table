@@ -9,16 +9,14 @@
   const app = express();
   // dotenv.config();
 
-  mongoose
+  const dbMSG = mongoose
     .connect(process.env.MONGO_URL)
-    .then(() => console.log("DB Connection Successfull!"))
-    .catch((err) => {
-      console.log("DB Connection ERROR!", err);
-    });
+    .then({err: false, msg: "DB Connection Successfull!"})
+    .catch((err) => { msg: "DB Connection ERROR!", err });
 
   app.get("/", async (req, res) => {
     // res.status(200).json("test is successfull!");
-    res.status(200).sendFile(path.join(process.cwd(), "test.json"));
+    res.status(200).sendFile(dbMSG.err ? dbMSG : path.join(process.cwd(), "test.json"));
   });
   app.use(cors());
   app.use(express.json());
