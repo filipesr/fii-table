@@ -18,7 +18,7 @@
 
   app.get("/", async (req, res) => {
     // res.status(200).json("test is successfull!");
-    res.status(200).sendFile(path.join(process.cwd(), "data.json"));
+    res.status(200).sendFile(path.join(process.cwd(), "test.json"));
   });
   app.use(cors());
   app.use(express.json());
