@@ -16,8 +16,7 @@ router.post("/refreshList", (req, res) => {
   listTicker.forEach((Ticker, index) => {
     // console.log('Fii.findOne...', Ticker);
     Fii.findOne({ Ticker }, (err, item) => {
-      if (err) 
-        return {error: true, message: `DB Service temporality unavaliable...`, err};
+      if (err) return {error: true, message: `DB Service temporality unavaliable...`, err};
       if (item && moment().isSame(item?.updatedAt, 'day')) {
         // console.log(Ticker, 'already updated');
         // ret.push(item)
@@ -26,7 +25,9 @@ router.post("/refreshList", (req, res) => {
       FiiAPI(Ticker)
         // .then((data) => ret.push(data))
         .then((data) => {
-          // console.log('FiiAPI(Ticker).then(data)');
+            // console.log('FiiAPI(Ticker).then(data)');
+          if (!data || data?.error) return console.log(Ticker, data?.message); 
+
           const configUpsert = {
             new: true,
             upsert: true // Make this update into an upsert
@@ -85,6 +86,7 @@ router.get("/:Ticker", (req, res) => {
       console.log('FiiAPI', Ticker);
       FiiAPI(Ticker)
         .then((data) => {
+          if (!data || data?.error) return res.status(404).json(data); 
           console.log('FiiAPI(Ticker).then(data)');
           
           const configUpsert = {
@@ -94,7 +96,7 @@ router.get("/:Ticker", (req, res) => {
           console.log('Fii.findOneAndUpdate');
           Fii.findOneAndUpdate({ Ticker }, data, configUpsert)
             .then(res.status(201).json(data))
-            .catch((err) => res.status(500).json({error: true, message: `Service temporality overloaded...`, err}));
+            .catch((err) => ({error: true, message: `Service temporality overloaded...`, err}));
 
         })
         .catch((err) => res.status(500).json({error: true, message: `Service unavaliable on Ticker '${Ticker}...`, err}));

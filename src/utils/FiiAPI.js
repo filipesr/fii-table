@@ -12,5 +12,5 @@ export default (Ticker) => {
       // console.debug(data);
       return data;
     })
-    .catch((err) => console.debug(err));
+    .catch(({response: {statusText: message}}) => {return {error: true, Ticker, message }});
 };
