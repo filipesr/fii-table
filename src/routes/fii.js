@@ -7,31 +7,85 @@ import Fii from "../models/Fii.js";
 import FiiAPI from "../utils/FiiAPI.js";
 
 const router = express.Router();
+
+
+const parseNumber = (num = "") => {
+  const sntNum = num.replace(/[.R\$%]/g, '').replace(',', '.');
+  let vlNum = Number.parseFloat(sntNum);
+  if(sntNum.endsWith("M")) vlNum *= 1000000;
+  return vlNum;
+}
 const parseFii = (data) => {
   // console.log(data.dateOnCVM, moment(data?.dateOnCVM, "DD/MM/YYYY"));
   const formatDateMongoose = "YYYY-MM-DD";
-  return {
-    ...data,
-    dateOnCVM: (data.dateOnCVM == "--/--/--")
-      ? null
-      : moment(data.dateOnCVM, "DD/MM/YYYY").format(formatDateMongoose),
-    lastRevenuesTable: data?.lastRevenuesTable?.map((item) => {
-      return {
-        ...item,
-        // dataBase: item?.dataBase?.replace('.', '/'),
-        // datePayment: item?.datePayment?.replace('.', '/'),
-        dataBase: moment(item?.dataBase, "DD.MM.YYYY").format(formatDateMongoose),
-        datePayment: moment(item?.datePayment, "DD.MM.YYYY").format(formatDateMongoose),
-      }
-    }),
-    news: data?.news?.map((item) => {
-      return {
-        ...item,
-        date: moment(item?.date, "DD.MM.YYYY").format(formatDateMongoose),
-        // date: item?.date?.replace('.', '/'),
-      }
-    }),
-  };
+  try {
+    // const firstRevenueDate = moment(data.lastRevenuesTable[0].dataBase, "DD.MM.YYYY");
+    const listRevenueDate = data?.lastRevenuesTable?.map((item) => moment(item?.dataBase, "DD.MM.YYYY"));
+    const minRevenueDate = moment.min(listRevenueDate);
+    const maxRevenueDate = moment.max(listRevenueDate);
+    const mounthsPastLastRevenue = (moment().diff(maxRevenueDate, 'months', true) + 1).toFixed(2);
+    const diffMonthsRevenues = (maxRevenueDate.diff(minRevenueDate, 'months', true) + 1).toFixed(2);
+    const numRevenues = data.lastRevenuesTable.length;
+    const frequencyYield = (diffMonthsRevenues / numRevenues).toFixed(2);
+    // const listYield = data?.lastRevenuesTable?.map((item) => parseNumber(item.dividendYield));
+    const sumYield = data.lastRevenuesTable
+      .map((item) => parseNumber(item.dividendYield))
+      .reduce((prev, curr) => prev + curr)
+      .toFixed(2);
+    const avgMonthYield = (sumYield / diffMonthsRevenues).toFixed(2);
+    // const diffMonthsRevenues = diffRevenueDate.asMonth()
+    if (process.env.DEBUG) 
+      console.debug({
+        minRevenueDate, 
+        maxRevenueDate, 
+        numRevenues, 
+        mounthsPastLastRevenue,
+        diffMonthsRevenues, 
+        frequencyYield, 
+        sumYield, 
+        avgMonthYield,
+      });
+
+    return {
+      ...data,
+      dateOnCVM: (data.dateOnCVM == "--/--/--")
+        ? null
+        : moment(data.dateOnCVM, "DD/MM/YYYY").format(formatDateMongoose),
+      dividendYield: parseNumber(data.dividendYield),
+      lastYield: parseNumber(data.lastYield),
+      mounthsPastLastRevenue,
+      frequencyYield, 
+      sumYield, 
+      avgMonthYield,
+      equity: parseNumber(data.equity),
+      patrimonialValuePerQuota: parseNumber(data.patrimonialValuePerQuota),
+      currentQuota: parseNumber(data.currentQuota),
+      min52weeks: parseNumber(data.min52weeks),
+      max52weeks: parseNumber(data.max52weeks),
+      valorization12months: parseNumber(data.valorization12months),
+      numberOfQuota: parseNumber(data.numberOfQuota),
+      numberOfQuotaHolders: parseNumber(data.numberOfQuotaHolders),
+      lastRevenuesTable: data?.lastRevenuesTable?.map((item) => {
+        return {
+          ...item,
+          dataBase: moment(item?.dataBase, "DD.MM.YYYY").format(formatDateMongoose),
+          datePayment: moment(item?.datePayment, "DD.MM.YYYY").format(formatDateMongoose),
+          baseQuotation: parseNumber(item.baseQuotation),
+          dividendYield: parseNumber(item.dividendYield),
+          yield: parseNumber(item.yield),
+        }
+      }),
+      news: data?.news?.map((item) => {
+        return {
+          ...item,
+          date: moment(item?.date, "DD.MM.YYYY").format(formatDateMongoose),
+        }
+      }),
+    };
+  } catch (error) {
+      console.debug(error);
+  }
+
 }
 
 //refreshList
@@ -91,6 +145,7 @@ router.get("/list", (req, res) => {
 //GET TICKER
 router.get("/:ticker", (req, res) => {
   // console.log(req.params);
+  // return console.log(parseNumber("R$ 42,40"), parseNumber("2,03%"), parseNumber("R$ 42,40 M"));
   const { ticker = false } = req.params;
   if(!ticker) return res.status(500).json({error: true, ticker, message: `Fii invalid...`});
 
@@ -108,13 +163,14 @@ router.get("/:ticker", (req, res) => {
   console.log('Fii.findOne', ticker);
   Fii.findOne({ ticker }, (err, item) => {
     if (err) return res.status(500).json({error: true, ticker, message: `Service temporality unavaliable...`, err});
-    if (item === null || moment().isAfter(item?.updatedAt, 'day')) {
+    if (process.env.DEBUG || item === null || moment().isAfter(item?.updatedAt, 'day')) {
       if(process.env.DEBUG) console.log('FiiAPI', ticker);
       FiiAPI(ticker)
         .then((data) => {
           if (!data || data?.error) return res.status(404).json(data); 
           if(process.env.DEBUG) console.log('FiiAPI(ticker).then(data)');
           const fii = parseFii(data);
+          // if(process.env.DEBUG) return res.status(201).json(fii);
           
           const configUpsert = {
             new: true,
