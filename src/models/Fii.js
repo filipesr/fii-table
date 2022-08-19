@@ -1,5 +1,25 @@
 import mongoose from "mongoose";
 
+const RevenuesSchema = new mongoose.Schema(
+  {
+    dataBase: { type: Date }, 
+    datePayment: { type: Date }, 
+    baseQuotation: { type: String }, 
+    dividendYield: { type: String }, 
+    yield: { type: String }, 
+  },
+  { timestamps: false }
+);
+
+const NewsSchema = new mongoose.Schema(
+  {
+    date: { type: Date }, 
+    text: { type: String }, 
+    link: { type: String }, 
+  },
+  { timestamps: false }
+);
+
 const FiiSchema = new mongoose.Schema(
   {
     /**
@@ -29,29 +49,24 @@ const FiiSchema = new mongoose.Schema(
         },
      */
     
-    Ticker: { type: String, unique: true, required: true },
-    Name: { type: String },
-    Administrator: { type: String },
-    DividendYield: { type: String, required: true },
-    LastYield: { type: String, required: true },
-    Equity: { type: String, required: true },
-    PatrimonialValuePerQuota: { type: String, required: true },
-    CurrentQuota: { type: String },
-    Min52weeks: { type: String },
-    Max52weeks: { type: String },
-    Valorization12months: { type: String },
-    TypeOfFII: { type: String },
-    TypeOfANBIMA: { type: String },
-    DateOnCVM: { type: String },
-    NumberOfQuota: { type: String },
-    NumberOfQuotaHolders: { type: String },
-    lastRevenuesTable: {
-      DataBase: String, 
-      DatePayment:  String, 
-      BaseQuotation:  String, 
-      DY: String, 
-      Dividend: String, 
-    },
+    ticker: { type: String, unique: true, required: true },
+    name: { type: String },
+    administrator: { type: String },
+    dividendYield: { type: String, required: true },
+    lastYield: { type: String, required: true },
+    equity: { type: String, required: true },
+    patrimonialValuePerQuota: { type: String, required: true },
+    currentQuota: { type: String },
+    min52weeks: { type: String },
+    max52weeks: { type: String },
+    valorization12months: { type: String },
+    typeOfFII: { type: String },
+    typeOfANBIMA: { type: String },
+    dateOnCVM: { type: Date },
+    numberOfQuota: { type: String },
+    numberOfQuotaHolders: { type: String },
+    lastRevenuesTable: [RevenuesSchema],
+    news: [NewsSchema],
   },
   { timestamps: true }
 );
