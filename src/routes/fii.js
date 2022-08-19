@@ -12,7 +12,9 @@ const parseFii = (data) => {
   const formatDateMongoose = "YYYY-MM-DD";
   return {
     ...data,
-    dateOnCVM: moment(data.dateOnCVM, "DD/MM/YYYY").format(formatDateMongoose),
+    dateOnCVM: (data.dateOnCVM == "--/--/--")
+      ? null
+      : moment(data.dateOnCVM, "DD/MM/YYYY").format(formatDateMongoose),
     lastRevenuesTable: data?.lastRevenuesTable?.map((item) => {
       return {
         ...item,
@@ -40,7 +42,7 @@ router.post("/refreshList", (req, res) => {
   listTicker.forEach((ticker, index) => {
     // console.log('Fii.findOne...', ticker);
     Fii.findOne({ ticker }, (err, item) => {
-      if (err) return {error: true, message: `DB Service temporality unavaliable...`, err};
+      if (err) return {error: true, ticker, message: `DB Service temporality unavaliable...`, err};
       if (item && moment().isSame(item?.updatedat, 'day')) {
         // console.log(ticker, 'already updated');
         // ret.push(item)
@@ -60,9 +62,9 @@ router.post("/refreshList", (req, res) => {
           // console.log('Fii.findOneAndUpdate');
           Fii.findOneAndUpdate({ ticker }, fii, configUpsert)
             // .then((newdata) => newdata)
-            .catch((err) => console.debug({error: true, message: `DB Service temporality overloaded...`, err}));
+            .catch((err) => console.debug({error: true, ticker, message: `DB Service temporality overloaded...`, err}));
         })
-        .catch((err) => console.debug({error: true, message: `API Service unavaliable on Ticker '${ticker}...`, err}));
+        .catch((err) => console.debug({error: true, ticker, message: `API Service unavaliable on Ticker '${ticker}...`, err}));
       return ;
     });
   });
@@ -90,7 +92,7 @@ router.get("/list", (req, res) => {
 router.get("/:ticker", (req, res) => {
   // console.log(req.params);
   const { ticker = false } = req.params;
-  if(!ticker) return res.status(500).json({error: true, message: `Fii invalid...`});
+  if(!ticker) return res.status(500).json({error: true, ticker, message: `Fii invalid...`});
 
   if(!process.env.DEBUG) {
     const host = req.get('site') || req.get('host');
@@ -105,9 +107,8 @@ router.get("/:ticker", (req, res) => {
 
   console.log('Fii.findOne', ticker);
   Fii.findOne({ ticker }, (err, item) => {
-    if (err) return res.status(500).json({error: true, message: `Service temporality unavaliable...`, err});
-    if(process.env.DEBUG) console.log(item?.updatedat, moment().isAfter(item?.updatedat, 'day'));
-    if (item === null || moment().isAfter(item?.updatedat, 'day')) {
+    if (err) return res.status(500).json({error: true, ticker, message: `Service temporality unavaliable...`, err});
+    if (item === null || moment().isAfter(item?.updatedAt, 'day')) {
       if(process.env.DEBUG) console.log('FiiAPI', ticker);
       FiiAPI(ticker)
         .then((data) => {
@@ -122,7 +123,7 @@ router.get("/:ticker", (req, res) => {
           if(process.env.DEBUG) console.log('Fii.findOneAndUpdate');
           Fii.findOneAndUpdate({ ticker }, fii, configUpsert)
             .then(res.status(201).json(fii))
-            .catch((err) => ({error: true, message: `Service temporality overloaded...`, err}));
+            .catch((err) => ({error: true, ticker, message: `Service temporality overloaded...`, err}));
 
         })
         .catch((err) => res.status(500).json({error: true, message: `Service unavaliable on Ticker '${ticker}...`, err}));
