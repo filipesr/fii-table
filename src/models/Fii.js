@@ -58,6 +58,7 @@ const FiiSchema = new mongoose.Schema(
     frequencyYield: { type: Number }, 
     sumYield: { type: Number }, 
     avgMonthYield: { type: Number }, 
+    prevMonthNextYield: { type: Date },
     equity: { type: Number, required: true },
     patrimonialValuePerQuota: { type: Number, required: true },
     currentQuota: { type: Number },

@@ -15,15 +15,18 @@ const parseNumber = (num = "") => {
   if(sntNum.endsWith("M")) vlNum *= 1000000;
   return vlNum;
 }
+const formatDateMongoose = "YYYY-MM-DD";
 const parseFii = (data) => {
   // console.log(data.dateOnCVM, moment(data?.dateOnCVM, "DD/MM/YYYY"));
-  const formatDateMongoose = "YYYY-MM-DD";
   try {
     // const firstRevenueDate = moment(data.lastRevenuesTable[0].dataBase, "DD.MM.YYYY");
+    const secondRevenueDate = moment(data.lastRevenuesTable[1].dataBase, "DD.MM.YYYY");
     const listRevenueDate = data?.lastRevenuesTable?.map((item) => moment(item?.dataBase, "DD.MM.YYYY"));
     const minRevenueDate = moment.min(listRevenueDate);
     const maxRevenueDate = moment.max(listRevenueDate);
-    const mounthsPastLastRevenue = (moment().diff(maxRevenueDate, 'months', true) + 1).toFixed(2);
+    const mounthsPastLastRevenue = moment().diff(maxRevenueDate, 'months', true).toFixed(2);
+    const diffMonthsFirstSecond = maxRevenueDate.diff(secondRevenueDate, 'months', true);
+    const prevMonthNextYield = maxRevenueDate.add(diffMonthsFirstSecond, 'M');
     const diffMonthsRevenues = (maxRevenueDate.diff(minRevenueDate, 'months', true) + 1).toFixed(2);
     const numRevenues = data.lastRevenuesTable.length;
     const frequencyYield = (diffMonthsRevenues / numRevenues).toFixed(2);
@@ -38,12 +41,15 @@ const parseFii = (data) => {
       console.debug({
         minRevenueDate, 
         maxRevenueDate, 
+        secondRevenueDate,
         numRevenues, 
         mounthsPastLastRevenue,
         diffMonthsRevenues, 
         frequencyYield, 
         sumYield, 
         avgMonthYield,
+        diffMonthsFirstSecond,
+        prevMonthNextYield,
       });
 
     return {
@@ -57,6 +63,7 @@ const parseFii = (data) => {
       frequencyYield, 
       sumYield, 
       avgMonthYield,
+      prevMonthNextYield: moment(prevMonthNextYield, "DD/MM/YYYY").format(formatDateMongoose),
       equity: parseNumber(data.equity),
       patrimonialValuePerQuota: parseNumber(data.patrimonialValuePerQuota),
       currentQuota: parseNumber(data.currentQuota),
@@ -124,6 +131,37 @@ router.post("/refreshList", (req, res) => {
   });
 
   res.status(200).json({error: false, message: "Refreshing tickers", listTicker});
+});
+
+//GET BESTS
+router.get("/bests", (req, res) => {
+  // filtrar as que pagaram a menos de 2 meses, 
+  // com frequencia menor que 1.3 meses e 
+  // com, pelo menos, 10 pagamentos de dividendos
+  const $where = { 
+    prevMonthNextYield: { $gt: moment().format(formatDateMongoose)},
+    mounthsPastLastRevenue: { $lt: 2 }, 
+    // mounthsPastLastRevenue: { $gt: 1 }, 
+    frequencyYield: { $lt: 1.3 }, 
+    "$expr":{$gte:[{$size:"$lastRevenuesTable"}, 10]} };
+
+  // ordenar pelo mais recente e com médio DY maior
+  const $sort = {
+    prevMonthNextYield: 1,
+    avgMonthYield: -1,
+    mounthsPastLastRevenue: 1,
+  };
+
+  Fii.find($where).sort($sort).exec((err, data) => {
+    if (err) return res.status(500).json({error: true, message: `Service temporality unavaliable...`, err});
+    if(process.env.DEBUG) console.log(`Recovered from db Ticker '${data.length}'`);
+      // const data = [];
+      // listRecovered.forEach((item) => data.push({ item.ticker, item }));
+      const resumeTicker = ({ticker, mounthsPastLastRevenue, avgMonthYield, dividendYield}) => 
+        `${ticker} - pastMonth: ${mounthsPastLastRevenue.toFixed(2)} - lastDY: ${dividendYield.toFixed(2)}% - avgDY: ${avgMonthYield.toFixed(2)}%`;
+      const listFounded = data.map(resumeTicker);
+      res.status(200).json({error: false, listFounded, data});
+  })
 });
 
 //GET LIST
