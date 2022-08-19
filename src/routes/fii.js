@@ -34,7 +34,7 @@ const parseFii = (data) => {
 
 //refreshList
 router.post("/refreshList", (req, res) => {
-  console.log('Refreshing list...');
+  if(process.env.DEBUG) console.log('Refreshing list...');
   const { listTicker } = req.body;
 
   listTicker.forEach((ticker, index) => {
@@ -50,7 +50,7 @@ router.post("/refreshList", (req, res) => {
         // .then((data) => ret.push(data))
         .then((data) => {
             // console.log('FiiAPI(ticker).then(data)');
-          if (!data || data?.error) return console.log(ticker, data?.message); 
+          if (!data || data?.error) return console.error(ticker, data?.message); 
           const fii = parseFii(data);
 
           const configUpsert = {
@@ -77,7 +77,7 @@ router.get("/list", (req, res) => {
 
   Fii.find({ 'ticker': { $in: listTicker } }, (err, data) => {
     if (err) return res.status(500).json({error: true, message: `Service temporality unavaliable...`, err});
-      console.log(`Recovered from db Ticker '${data.length}'`);
+    if(process.env.DEBUG) console.log(`Recovered from db Ticker '${data.length}'`);
       // const data = [];
       // listRecovered.forEach((item) => data.push({ item.ticker, item }));
       const listFounded = data.map(({ticker}) => ticker);
@@ -96,7 +96,7 @@ router.get("/:ticker", (req, res) => {
     const host = req.get('site') || req.get('host');
     const { originalUrl: url } = req;
     const call = {ticker, host, url};
-    console.log('new Call...');
+    if(process.env.DEBUG) console.log('new Call...');
     // console.debug(call);
     new Call(call).save();
     // .then(console.debug({error: false, message: `Call saved`}))
@@ -106,20 +106,20 @@ router.get("/:ticker", (req, res) => {
   console.log('Fii.findOne', ticker);
   Fii.findOne({ ticker }, (err, item) => {
     if (err) return res.status(500).json({error: true, message: `Service temporality unavaliable...`, err});
-    console.log(item?.updatedat, moment().isAfter(item?.updatedat, 'day'));
+    if(process.env.DEBUG) console.log(item?.updatedat, moment().isAfter(item?.updatedat, 'day'));
     if (item === null || moment().isAfter(item?.updatedat, 'day')) {
-      console.log('FiiAPI', ticker);
+      if(process.env.DEBUG) console.log('FiiAPI', ticker);
       FiiAPI(ticker)
         .then((data) => {
           if (!data || data?.error) return res.status(404).json(data); 
-          console.log('FiiAPI(ticker).then(data)');
+          if(process.env.DEBUG) console.log('FiiAPI(ticker).then(data)');
           const fii = parseFii(data);
           
           const configUpsert = {
             new: true,
             upsert: true // Make this update into an upsert
           };
-          console.log('Fii.findOneAndUpdate');
+          if(process.env.DEBUG) console.log('Fii.findOneAndUpdate');
           Fii.findOneAndUpdate({ ticker }, fii, configUpsert)
             .then(res.status(201).json(fii))
             .catch((err) => ({error: true, message: `Service temporality overloaded...`, err}));
@@ -127,7 +127,7 @@ router.get("/:ticker", (req, res) => {
         })
         .catch((err) => res.status(500).json({error: true, message: `Service unavaliable on Ticker '${ticker}...`, err}));
     } else {
-      console.log(`Recovered from db Ticker '${ticker}'`);
+      if(process.env.DEBUG) console.log(`Recovered from db Ticker '${ticker}'`);
       res.status(200).json(item);
     }
   })
