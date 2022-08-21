@@ -143,6 +143,7 @@ router.get("/bests", (req, res) => {
     mounthsPastLastRevenue: { $lt: 2 }, 
     // mounthsPastLastRevenue: { $gt: 1 }, 
     frequencyYield: { $lt: 1.3 }, 
+    lastYield: { $gt: 1 }, 
     "$expr":{$gte:[{$size:"$lastRevenuesTable"}, 10]} };
 
   // ordenar pelo mais recente e com médio DY maior
@@ -157,8 +158,8 @@ router.get("/bests", (req, res) => {
     if(process.env.DEBUG) console.log(`Recovered from db Ticker '${data.length}'`);
       // const data = [];
       // listRecovered.forEach((item) => data.push({ item.ticker, item }));
-      const resumeTicker = ({ticker, mounthsPastLastRevenue, avgMonthYield, dividendYield}) => 
-        `${ticker} - pastMonth: ${mounthsPastLastRevenue.toFixed(2)} - lastDY: ${dividendYield.toFixed(2)}% - avgDY: ${avgMonthYield.toFixed(2)}%`;
+      const resumeTicker = ({ticker, avgMonthYield, dividendYield, prevMonthNextYield}) => 
+        `${ticker} - lastDY: ${dividendYield.toFixed(2)}% - avgDY: ${avgMonthYield.toFixed(2)}% - nextDt: ${prevMonthNextYield.toLocaleDateString('pt-BR')}`;
       const listFounded = data.map(resumeTicker);
       res.status(200).json({error: false, listFounded, data});
   })
