@@ -8,13 +8,15 @@ import FiiAPI from "../utils/FiiAPI.js";
 
 const router = express.Router();
 
+const formatDateMongoose = "YYYY-MM-DD";
+const allExceptId = "-_id -__v -lastRevenuesTable._id -news._id";
+
 const parseNumber = (num = "") => {
   const sntNum = num.replace(/[.R\$%]/g, '').replace(',', '.');
   let vlNum = Number.parseFloat(sntNum);
   if(sntNum.endsWith("M")) vlNum *= 1000000;
   return vlNum;
 }
-const formatDateMongoose = "YYYY-MM-DD";
 const parseFii = (data) => {
   // console.log(data.dateOnCVM, moment(data?.dateOnCVM, "DD/MM/YYYY"));
   try {
@@ -170,7 +172,7 @@ router.get("/bests", (req, res) => {
     mounthsPastLastRevenue: 1,
   };
 
-  Fii.find($where).sort($sort).exec((err, data) => {
+  Fii.find($where, allExceptId).sort($sort).exec((err, data) => {
     if (err) return res.status(500).json({error: true, message: `Service temporality unavaliable...`, err});
     if (process.env.DEBUG) console.log(`Recovered from db Ticker '${data.length}'`);
       // const data = [];
@@ -187,7 +189,7 @@ router.get("/list", (req, res) => {
   const { listTicker } = req.body;
   // console.log(listTicker);
 
-  Fii.find({ 'ticker': { $in: listTicker } }, (err, data) => {
+  Fii.find({ 'ticker': { $in: listTicker } }, allExceptId, (err, data) => {
     if (err) return res.status(500).json({error: true, message: `Service temporality unavaliable...`, err});
     if (process.env.DEBUG) console.log(`Recovered from db Ticker '${data.length}'`);
       // const data = [];
@@ -217,7 +219,7 @@ router.get("/:ticker", (req, res) => {
   }
 
   console.log('Fii.findOne', ticker);
-  Fii.findOne({ ticker }, (err, item) => {
+  Fii.findOne({ ticker }, allExceptId, (err, item) => {
     if (err) return res.status(500).json({error: true, ticker, message: `Service temporality unavaliable...`, err});
     if (process.env.DEBUG || item === null || moment().isAfter(item?.updatedAt, 'day')) {
       if (process.env.DEBUG) console.log('FiiAPI', ticker);
