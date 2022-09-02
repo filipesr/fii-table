@@ -1,0 +1,11 @@
+name: daily-cron
+on:
+  schedule:
+    - cron: '0 1 * * *'
+jobs:
+  cron:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call our API route to refresh the list of FII's
+        run: |
+          curl --request POST --url 'https://fii-table.vercel.app/api/fii/refreshList'
