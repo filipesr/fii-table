@@ -61,6 +61,7 @@ const FiiSchema = new mongoose.Schema(
     prevMonthNextYield: { type: Date },
     equity: { type: Number, required: true },
     patrimonialValuePerQuota: { type: Number, required: true },
+    patrimonialValueRelative: { type: Number, required: true },
     currentQuota: { type: Number },
     min52weeks: { type: Number },
     max52weeks: { type: Number },

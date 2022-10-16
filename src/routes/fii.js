@@ -20,6 +20,7 @@ const parseNumber = (num = "") => {
 const parseFii = (data) => {
   // console.log(data.dateOnCVM, moment(data?.dateOnCVM, "DD/MM/YYYY"));
   try {
+    const patrimonialValueRelative = (parseNumber(data.currentQuota) / parseNumber(data.patrimonialValuePerQuota));
     // const firstRevenueDate = moment(data.lastRevenuesTable[0].dataBase, "DD.MM.YYYY");
     const secondRevenueDate = moment(data.lastRevenuesTable[1].dataBase, "DD.MM.YYYY");
     const listRevenueDate = data?.lastRevenuesTable?.map((item) => moment(item?.dataBase, "DD.MM.YYYY"));
@@ -67,6 +68,7 @@ const parseFii = (data) => {
       prevMonthNextYield: moment(prevMonthNextYield, "DD/MM/YYYY").format(formatDateMongoose),
       equity: parseNumber(data.equity),
       patrimonialValuePerQuota: parseNumber(data.patrimonialValuePerQuota),
+      patrimonialValueRelative,
       currentQuota: parseNumber(data.currentQuota),
       min52weeks: parseNumber(data.min52weeks),
       max52weeks: parseNumber(data.max52weeks),
@@ -154,16 +156,20 @@ router.post("/refreshList", (req, res) => {
 
 //GET BESTS
 router.get("/bests", (req, res) => {
+  const filterDef = { maxMounthsPastLastRevenue: 2, maxFrequencyYield: 1.3, minLastYield: 1, minRevenuesCount: 10 };
+  const { filter } = req.body;
+  const { maxMounthsPastLastRevenue, maxFrequencyYield, minLastYield, minRevenuesCount } = {...filterDef, ...filter};
+  console.log(maxMounthsPastLastRevenue);
   // filtrar as que pagaram a menos de 2 meses, 
   // com frequencia menor que 1.3 meses e 
   // com, pelo menos, 10 pagamentos de dividendos
   const $where = { 
     prevMonthNextYield: { $gt: moment().format(formatDateMongoose)},
-    mounthsPastLastRevenue: { $lt: 2 }, 
+    mounthsPastLastRevenue: { $lt: maxMounthsPastLastRevenue }, 
     // mounthsPastLastRevenue: { $gt: 1 }, 
-    frequencyYield: { $lt: 1.3 }, 
-    lastYield: { $gt: 1 }, 
-    "$expr":{$gte:[{$size:"$lastRevenuesTable"}, 10]} };
+    frequencyYield: { $lt: maxFrequencyYield }, 
+    lastYield: { $gt: minLastYield }, 
+    "$expr":{$gte:[{$size:"$lastRevenuesTable"}, minRevenuesCount]} };
 
   // ordenar pelo mais recente e com médio DY maior
   const $sort = {
@@ -177,10 +183,14 @@ router.get("/bests", (req, res) => {
     if (process.env.DEBUG) console.log(`Recovered from db Ticker '${data.length}'`);
       // const data = [];
       // listRecovered.forEach((item) => data.push({ item.ticker, item }));
-      const resumeTicker = ({ticker, avgMonthYield, dividendYield, prevMonthNextYield}) => 
-        `${ticker} - lastDY: ${dividendYield.toFixed(2)}% - avgDY: ${avgMonthYield.toFixed(2)}% - nextDt: ${prevMonthNextYield.toLocaleDateString('pt-BR')}`;
-      const listFounded = data.map(resumeTicker);
-      res.status(200).json({error: false, listFounded, data});
+      const resumeTicker = ({ticker, avgMonthYield, dividendYield, prevMonthNextYield, patrimonialValueRelative}) => 
+        `${ticker} - ` + 
+        `VP: ${patrimonialValueRelative.toFixed(2)}% - ` + 
+        `lastDY: ${dividendYield.toFixed(2)}% - ` + 
+        `avgDY12: ${avgMonthYield.toFixed(2)}% - ` + 
+        `nextDtBase: ${prevMonthNextYield.toLocaleDateString('pt-BR')}`;
+      const resume = data.map(resumeTicker);
+      res.status(200).json({error: false, resume, data});
   })
 });
 
