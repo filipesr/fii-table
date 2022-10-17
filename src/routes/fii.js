@@ -9,7 +9,7 @@ import FiiAPI from "../utils/FiiAPI.js";
 const router = express.Router();
 
 const formatDateMongoose = "YYYY-MM-DD";
-const allExceptId = "-_id -__v -lastRevenuesTable._id -news._id";
+const allExceptId = "-_id -__v -createdAt -updatedAt -lastRevenuesTable._id -news._id";
 
 const parseNumber = (num = "") => {
   const sntNum = num.replace(/[.R\$%]/g, '').replace(',', '.');
@@ -18,7 +18,9 @@ const parseNumber = (num = "") => {
   return vlNum;
 }
 const parseFii = (data) => {
-  // console.log(data.dateOnCVM, moment(data?.dateOnCVM, "DD/MM/YYYY"));
+  // if (process.env.DEBUG) console.debug(data.dateOnCVM, moment(data?.dateOnCVM, "DD/MM/YYYY"));
+  // if (process.env.DEBUG) console.debug(data);
+  // if (process.env.DEBUG) console.debug(data.lastRevenuesTable[0]);
   try {
     const patrimonialValueRelative = (parseNumber(data.currentQuota) / parseNumber(data.patrimonialValuePerQuota));
     // const firstRevenueDate = moment(data.lastRevenuesTable[0].dataBase, "DD.MM.YYYY");
@@ -27,8 +29,14 @@ const parseFii = (data) => {
     const minRevenueDate = moment.min(listRevenueDate);
     const maxRevenueDate = moment.max(listRevenueDate);
     const mounthsPastLastRevenue = moment().diff(maxRevenueDate, 'months', true).toFixed(2);
-    const diffMonthsFirstSecond = maxRevenueDate.diff(secondRevenueDate, 'months', true);
-    const prevMonthNextYield = maxRevenueDate.add(diffMonthsFirstSecond, 'M');
+    const diffMonthsFirstSecondDateBase = maxRevenueDate.diff(secondRevenueDate, 'months', true);
+    const prevMonthNextYield = maxRevenueDate.add(diffMonthsFirstSecondDateBase, 'M');
+    // next payment predict
+    const secondPaymentDate = moment(data.lastRevenuesTable[1].datePayment, "DD.MM.YYYY");
+    const lastPaymentDate = moment(data.lastRevenuesTable[0].datePayment, "DD.MM.YYYY");
+    const diffMonthsFirstSecondDatePay = lastPaymentDate.diff(secondPaymentDate, 'months', true);
+    const prevMonthNextPay = lastPaymentDate.add(diffMonthsFirstSecondDatePay, 'M');
+
     const diffMonthsRevenues = (maxRevenueDate.diff(minRevenueDate, 'months', true) + 1).toFixed(2);
     const numRevenues = data.lastRevenuesTable.length;
     const frequencyYield = (diffMonthsRevenues / numRevenues).toFixed(2);
@@ -50,8 +58,9 @@ const parseFii = (data) => {
         frequencyYield, 
         sumYield, 
         avgMonthYield,
-        diffMonthsFirstSecond,
+        diffMonthsFirstSecondDateBase,
         prevMonthNextYield,
+        prevMonthNextPay,
       });
 
     return {
@@ -66,6 +75,7 @@ const parseFii = (data) => {
       sumYield, 
       avgMonthYield,
       prevMonthNextYield: moment(prevMonthNextYield, "DD/MM/YYYY").format(formatDateMongoose),
+      prevMonthNextPay: moment(prevMonthNextPay, "DD/MM/YYYY").format(formatDateMongoose),
       equity: parseNumber(data.equity),
       patrimonialValuePerQuota: parseNumber(data.patrimonialValuePerQuota),
       patrimonialValueRelative,
@@ -106,28 +116,31 @@ router.post("/refreshList", (req, res) => {
   // com frequencia menor que 1.3 meses e 
   // com, pelo menos, 10 pagamentos de dividendos
   const $where = { 
-    updatedAt: { $lt: moment().format(formatDateMongoose)},
+    // updatedAt: { $lt: moment().format(formatDateMongoose)},
   };
 
-  Fii.find($where).select('ticker').exec((err, data) => {
+  Fii.find($where).exec((err, data) => {
   // , (err, data) => {
     if (err) return res.status(500).json({error: true, message: `Service temporality unavaliable...`, err});
     if (process.env.DEBUG) console.log(`Recovered from db Ticker '${data.length}'`);
-    // console.debug(data);
+    // if (process.env.DEBUG) console.debug(data);
     const listTicker = data.map(({ticker}) => ticker);
+    // if (process.env.DEBUG) console.debug(listTicker);
+
     res.status(200).json({error: false, message: "Refreshing tickers", listTicker});
 
-    listTicker.forEach((ticker, index) => {
-      // console.log('Fii.findOne...', ticker);
-      Fii.findOne({ ticker, ...$where }, (err, item) => {
-        if (err) {
-          if (process.env.DEBUG) console.debug({message: `Error on recover data of '${ticker}'`, err});
-          return ;
-        };
-        if (!item) {
-          if (process.env.DEBUG) console.debug({message: `Without data recovered of '${ticker}'`, item});
-          return ;
-        }
+    data.forEach((item, index) => {
+      const {ticker} = item;
+      if (process.env.DEBUG) console.log('Fii.findOne...', ticker);
+      // Fii.findOne({ ticker, ...$where }, (err, item) => {
+      //   if (err) {
+      //     if (process.env.DEBUG) console.debug({message: `Error on recover data of '${ticker}'`, err});
+      //     return ;
+      //   };
+      //   if (!item) {
+      //     if (process.env.DEBUG) console.debug({message: `Without data recovered of '${ticker}'`, item});
+      //     return ;
+      //   }
   
         FiiAPI(ticker)
           // .then((data) => ret.push(data))
@@ -147,7 +160,7 @@ router.post("/refreshList", (req, res) => {
           })
           .catch((err) => console.debug({error: true, ticker, message: `API Service unavaliable on Ticker '${ticker}...`, err}));
         return ;
-      });
+      // });
     });
   })
 
@@ -156,9 +169,9 @@ router.post("/refreshList", (req, res) => {
 
 //GET BESTS
 router.get("/bests", (req, res) => {
-  const filterDef = { maxMounthsPastLastRevenue: 2, maxFrequencyYield: 1.3, minLastYield: 1, minRevenuesCount: 10 };
+  const filterDef = { maxMounthsPastLastRevenue: 2, maxFrequencyYield: 1.3, minLastDY: 1, minRevenuesCount: 10, maxPatrimonialValueRelative: 1 };
   const { filter } = req.body;
-  const { maxMounthsPastLastRevenue, maxFrequencyYield, minLastYield, minRevenuesCount } = {...filterDef, ...filter};
+  const { maxMounthsPastLastRevenue, maxFrequencyYield, minLastDY, minRevenuesCount, maxPatrimonialValueRelative } = {...filterDef, ...filter};
   console.log(maxMounthsPastLastRevenue);
   // filtrar as que pagaram a menos de 2 meses, 
   // com frequencia menor que 1.3 meses e 
@@ -168,8 +181,10 @@ router.get("/bests", (req, res) => {
     mounthsPastLastRevenue: { $lt: maxMounthsPastLastRevenue }, 
     // mounthsPastLastRevenue: { $gt: 1 }, 
     frequencyYield: { $lt: maxFrequencyYield }, 
-    lastYield: { $gt: minLastYield }, 
-    "$expr":{$gte:[{$size:"$lastRevenuesTable"}, minRevenuesCount]} };
+    dividendYield: { $gt: minLastDY }, 
+    "$expr":{$gte:[{$size:"$lastRevenuesTable"}, minRevenuesCount]}, 
+    patrimonialValueRelative: { $lt: maxPatrimonialValueRelative }, 
+  };
 
   // ordenar pelo mais recente e com médio DY maior
   const $sort = {
@@ -183,12 +198,15 @@ router.get("/bests", (req, res) => {
     if (process.env.DEBUG) console.log(`Recovered from db Ticker '${data.length}'`);
       // const data = [];
       // listRecovered.forEach((item) => data.push({ item.ticker, item }));
-      const resumeTicker = ({ticker, avgMonthYield, dividendYield, prevMonthNextYield, patrimonialValueRelative}) => 
-        `${ticker} - ` + 
+      const resumeTicker = ({ticker, typeOfFII, dividendYield, currentQuota, avgMonthYield, prevMonthNextYield, prevMonthNextPay, patrimonialValueRelative}) => 
+        `${ticker} ` + 
+        `(${typeOfFII}) - ` + 
         `VP: ${patrimonialValueRelative.toFixed(2)}% - ` + 
         `lastDY: ${dividendYield.toFixed(2)}% - ` + 
         `avgDY12: ${avgMonthYield.toFixed(2)}% - ` + 
-        `nextDtBase: ${prevMonthNextYield.toLocaleDateString('pt-BR')}`;
+        `prevDtBase: ${moment(prevMonthNextYield).format("DD/MM")} - ` + 
+        `prevDtPay: ${moment(prevMonthNextPay).format("DD/MM")} - ` + 
+        `Cuota: R$ ${currentQuota.toFixed(2)}`;
       const resume = data.map(resumeTicker);
       res.status(200).json({error: false, resume, data});
   })
